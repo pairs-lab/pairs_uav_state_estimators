@@ -1,0 +1,75 @@
+#ifndef ESTIMATORS_STATE_GARMIN_AGL_H
+#define ESTIMATORS_STATE_GARMIN_AGL_H
+
+/* includes //{ */
+
+#include <ros/ros.h>
+
+#include <pairs_msgs/Float64Stamped.h>
+
+#include <pairs_lib/lkf.h>
+#include <pairs_lib/profiler.h>
+#include <pairs_lib/param_loader.h>
+#include <pairs_lib/subscribe_handler.h>
+#include <pairs_lib/publisher_handler.h>
+#include <pairs_lib/attitude_converter.h>
+#include <pairs_lib/transformer.h>
+
+#include <pairs_uav_managers/agl_estimator.h>
+
+#include <pairs_uav_state_estimators/estimators/altitude/alt_generic.h>
+
+//}
+
+namespace pairs_uav_state_estimators
+{
+
+namespace garmin_agl
+{
+const char name[]         = "garmin_agl";
+const char frame_id[]     = "garmin_agl_origin";
+const char package_name[] = "pairs_uav_state_estimators";
+
+const bool is_core_plugin = true;
+
+class GarminAgl : public pairs_uav_managers::AglEstimator {
+
+private:
+  std::unique_ptr<AltGeneric> est_agl_garmin_;
+  const std::string           est_agl_name_ = "garmin_agl";
+
+  const bool is_core_plugin_;
+
+  ros::Timer timer_update_;
+  int        _update_timer_rate_;
+  void       timerUpdate(const ros::TimerEvent &event);
+
+  ros::Timer timer_check_health_;
+  int        _check_health_timer_rate_;
+  void       timerCheckHealth(const ros::TimerEvent &event);
+
+  bool isConverged();
+
+  void waitForEstimationInitialization();
+
+public:
+  GarminAgl() : AglEstimator(garmin_agl::name, garmin_agl::frame_id, garmin_agl::package_name), is_core_plugin_(is_core_plugin) {
+  }
+
+  ~GarminAgl(void) {
+  }
+
+  void initialize(ros::NodeHandle &nh, const std::shared_ptr<CommonHandlers_t> &ch, const std::shared_ptr<PrivateHandlers_t> &ph) override;
+  bool start(void) override;
+  bool pause(void) override;
+  bool reset(void) override;
+
+  pairs_msgs::Float64Stamped getUavAglHeight() const override;
+  std::vector<double>      getHeightCovariance() const override;
+};
+
+}  // namespace garmin_agl
+
+}  // namespace pairs_uav_state_estimators
+
+#endif  // ESTIMATORS_STATE_GARMIN_AGL_H
