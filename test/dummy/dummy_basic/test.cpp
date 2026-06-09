@@ -1,0 +1,78 @@
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/time.hpp>
+
+#include <pairs_uav_testing/test_generic.h>
+
+using namespace std::chrono_literals;
+
+class Tester : public pairs_uav_testing::TestGeneric {
+
+public:
+  Tester() : pairs_uav_testing::TestGeneric() {
+  }
+
+  bool test(void);
+
+  std::shared_ptr<pairs_uav_testing::UAVHandler> uh_;
+};
+
+bool Tester::test(void) {
+
+  const std::string uav_name = "uav1";
+
+  {
+    auto [uhopt, message] = getUAVHandler(uav_name);
+
+    if (!uhopt) {
+      RCLCPP_ERROR(node_->get_logger(), "Failed obtain handler for '%s': '%s'", uav_name.c_str(), message.c_str());
+      return false;
+    }
+
+    uh_ = uhopt.value();
+  }
+
+  auto res = uh_->checkPreconditions();
+
+  if (!(std::get<0>(res))) {
+    return false;
+  }
+
+  // | ---------------- wait for ready to takeoff --------------- |
+
+  while (true) {
+
+    if (!rclcpp::ok()) {
+      return false;
+    }
+
+    RCLCPP_INFO_THROTTLE(node_->get_logger(), *clock_, 1000, "[%s]: waiting for the PAIRS UAV System", name_.c_str());
+
+    if (uh_->mrsSystemReady()) {
+      RCLCPP_INFO(node_->get_logger(), "[%s]: PAIRS UAV System is ready", name_.c_str());
+      break;
+    }
+
+    sleep(0.01);
+  }
+
+  return true;
+}
+
+int main(int argc, char *argv[]) {
+
+  rclcpp::init(argc, argv);
+
+  bool test_result = true;
+
+  Tester tester;
+
+  test_result &= tester.test();
+
+  tester.sleep(2.0);
+
+  std::cout << "Test: reporting test results" << std::endl;
+
+  tester.reportTestResult(test_result);
+
+  tester.join();
+}
