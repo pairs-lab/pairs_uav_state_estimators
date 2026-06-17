@@ -18,9 +18,26 @@ pairs_uav_managers:
           acc: 1.0 # acceleration state
 
         corrections: [
-          # positional correction only makes the estimator unstable, vel_hw_api is not a derivative of pos_hw_api, vel_hw_api_only works best
+          # vel_hw_api drives the estimate; pos_hw_api is a WEAK anchor (high R) that
+          # bounds the otherwise-unbounded altitude drift of a velocity-only estimator
+          # without fighting the velocity correction (a tight pos correction is unstable
+          # because hw_api velocity is not the exact derivative of hw_api position).
+          "pos_hw_api",
           "vel_hw_api"
         ]
+
+        pos_hw_api:
+          state_id: 0 # 0 - position, 1 - velocity, 2 - acceleration
+          noise: 1.0 # measurement noise covariance (R) — deliberately loose: anchors slowly, no oscillation
+          noise_unhealthy_coeff: 100.0 # covariance gets multiplied by this coefficient when correction is unhealthy (R)
+          message:
+            type: "geometry_msgs/PointStamped"
+            topic: "hw_api/position" # without uav namespace
+            limit:
+              delay: 0.5 # [s] messages with higher delay will flag correction as unhealthy
+              time_since_last: 0.5 # [s] larger time step between messages will flag correction as unhealthy
+
+          processors: [] # z is already in the estimator frame; no transform needed
 
         vel_hw_api:
           state_id: 1 # 0 - position, 1 - velocity, 2 - acceleration
